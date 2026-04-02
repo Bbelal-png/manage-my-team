@@ -13,6 +13,22 @@
 <!-- Overlay sidebar mobile -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
+<!-- ══ WIZARD PREMIER LANCEMENT ══ -->
+<div class="wizard-overlay" id="wizard-overlay" style="display:none">
+  <div class="wizard-box">
+    <div class="wizard-header">
+      <div class="wizard-steps" id="wiz-steps"></div>
+      <div class="wizard-title" id="wiz-title">BIENVENUE</div>
+      <div class="wizard-subtitle" id="wiz-subtitle">Configurons votre club</div>
+    </div>
+    <div class="wizard-body" id="wiz-body"></div>
+    <div class="wizard-footer">
+      <button class="btn-wiz-back" id="wiz-back" onclick="wizBack()">← Retour</button>
+      <button class="btn-wiz-next" id="wiz-next" onclick="wizNext()">Suivant →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SIDEBAR ══ -->
 <div class="sidebar" id="sidebar">
   <div class="sb-logo">Manage<span>My</span>Team</div>
