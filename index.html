@@ -1187,7 +1187,7 @@ function renderHome(){
     [(unread?'r':'g'),unread,'Notifs non lues'],
     ['b',PROJECTS.filter(p=>p.status==='active').length,'Projets actifs'],
     ['g',SESSIONS.length,'Sessions'],
-  ].map(([c,v,l])=>'<div class="kpi"><div class="kpi-val '+c+'">'+v+'</div><div class="kpi-label">'+l+'</div></div><button class="btn btn-sm" onclick="deleteEvent('+e.id+')" style="color:var(--red);border-color:var(--red);flex-shrink:0;margin-left:.5rem">🗑️</button></div>').join('');
+  ].map(([c,v,l])=>'<div class="kpi"><div class="kpi-val '+c+'">'+v+'</div><div class="kpi-label">'+l+'</div></div>').join('');
   gi('home-kpis').style.gridTemplateColumns='repeat(4,1fr)';
   gi('staff-list').innerHTML=STAFF.map(s=>'<div class="staff-card" onclick="openModal(\'editStaff\','+s.id+')"><div class="staff-avatar">'+(s.photoUrl?'<img src="'+s.photoUrl+'">':(s.name[0]||'?'))+'</div><div class="staff-name">'+s.name+'</div><div class="staff-role">'+s.role+'</div></div>').join('')+'<div class="staff-card" onclick="openModal(\'staff\')" style="border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:90px;color:var(--muted)">+ Staff</div>';
   gi('cat-list').innerHTML=CATEGORIES.map(c=>'<div class="cat-card '+(c.active?'':'inactive')+'" onclick="openModal(\'editCat\','+c.id+')"><span>'+c.emoji+'</span><span>'+c.name+'</span></div>').join('')+'<div class="cat-card" onclick="openModal(\'category\')" style="border-style:dashed;color:var(--muted)">+ Catégorie</div>';
