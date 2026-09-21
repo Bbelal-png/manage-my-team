@@ -1052,13 +1052,38 @@ function avatar(p,sz=32){
   return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+p.color+'">'+ini+'</div>';
 }
 function posBadge(pos){return '<span class="pos-badge" style="background:'+posColor(pos)+'22;color:'+posColor(pos)+';border:1px solid '+posColor(pos)+'44">'+pos+'</span>';}
-function photoZone(id,src,onch){
-  return '<div class="photo-zone" style="position:relative;cursor:pointer">'
+function photoZone(id,src,target){
+  return '<div class="photo-zone" data-pz="'+target+'">'
     +(src?'<img src="'+src+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radius)">':'<span style="pointer-events:none;font-size:1.8rem">📷</span>')
-    +'<input type="file" id="'+id+'" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="'+onch+'">'
-    +(src?'<button class="photo-clear" onclick="event.stopPropagation();_pendingPhoto=null;const z=this.closest(\'.photo-zone\');z.querySelector(\'img\')?.remove();this.remove();z.insertAdjacentHTML(\'afterbegin\',\'<span style=&quot;pointer-events:none;font-size:1.8rem&quot;>📷</span>\')">✕</button>':'')
+    +'<input type="file" id="'+id+'" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">'
+    +(src?'<button class="photo-clear" data-clear="'+id+'">✕</button>':'')
     +'</div>';
 }
+function handlePhotoInput(inp){
+  var file=inp.files[0]; if(!file)return;
+  var t=inp.getAttribute('data-t')||'player';
+  readFile(file).then(function(b64){
+    _pendingPhoto=b64;
+    var zone=inp.parentElement;
+    zone.querySelectorAll('img,span,button').forEach(function(el){el.remove();});
+    var img=document.createElement('img');
+    img.src=b64; img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radius)';
+    zone.insertBefore(img,inp);
+    var btn=document.createElement('button');
+    btn.className='photo-clear'; btn.innerHTML='&#10005;';
+    btn.onclick=function(e){e.stopPropagation();_pendingPhoto=null;img.remove();btn.remove();var sp=document.createElement('span');sp.style.cssText='pointer-events:none;font-size:1.8rem';sp.textContent='📷';zone.insertBefore(sp,inp);};
+    zone.insertBefore(btn,inp);
+    if(t==='badge'){var z=gi('badge-prev');if(z)z.innerHTML='<img src="'+b64+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px">';}
+  }).catch(function(e){toast('⚠️ '+e.message);});
+}
+function clearPhZ(btn){
+  _pendingPhoto=null;
+  var zone=btn.parentElement;
+  zone.querySelectorAll('img,button').forEach(function(el){el.remove();});
+  var sp=document.createElement('span');sp.style.cssText='pointer-events:none;font-size:1.8rem';sp.textContent='📷';
+  zone.insertBefore(sp,zone.querySelector('input'));
+}
+
 
 async function handlePhoto(event,target){
   const file=event.target.files[0];if(!file)return;
@@ -1068,23 +1093,18 @@ async function handlePhoto(event,target){
       const z=gi('badge-prev');
       if(z)z.innerHTML='<img src="'+_pendingPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px">';
     } else {
-      // Find the photo-zone container
       const input=event.target;
-      const zone=input.parentElement;
-      if(zone&&zone.classList.contains('photo-zone')){
-        // Remove existing content except the input
-        Array.from(zone.children).forEach(c=>{if(c!==input)c.remove();});
-        // Add preview image
+      const zone=input.closest?input.closest('.photo-zone'):input.parentElement;
+      if(zone){
+        zone.querySelectorAll('img,.photo-clear,span').forEach(el=>el.remove());
         const img=document.createElement('img');
         img.src=_pendingPhoto;
-        img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radius);pointer-events:none';
-        zone.appendChild(img);
-        // Add clear button
+        img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radius)';
+        zone.insertAdjacentElement('afterbegin',img);
         const btn=document.createElement('button');
         btn.className='photo-clear';btn.textContent='✕';
         btn.onclick=(e)=>{
-          e.stopPropagation();
-          _pendingPhoto=null;
+          e.stopPropagation();_pendingPhoto=null;
           img.remove();btn.remove();
           zone.insertAdjacentHTML('afterbegin','<span style="pointer-events:none;font-size:1.8rem">📷</span>');
         };
@@ -1167,7 +1187,7 @@ function renderHome(){
     [(unread?'r':'g'),unread,'Notifs non lues'],
     ['b',PROJECTS.filter(p=>p.status==='active').length,'Projets actifs'],
     ['g',SESSIONS.length,'Sessions'],
-  ].map(([c,v,l])=>'<div class="kpi"><div class="kpi-val '+c+'">'+v+'</div><div class="kpi-label">'+l+'</div></div>').join('');
+  ].map(([c,v,l])=>'<div class="kpi"><div class="kpi-val '+c+'">'+v+'</div><div class="kpi-label">'+l+'</div></div><button class="btn btn-sm" onclick="deleteEvent('+e.id+')" style="color:var(--red);border-color:var(--red);flex-shrink:0;margin-left:.5rem">🗑️</button></div>').join('');
   gi('home-kpis').style.gridTemplateColumns='repeat(4,1fr)';
   gi('staff-list').innerHTML=STAFF.map(s=>'<div class="staff-card" onclick="openModal(\'editStaff\','+s.id+')"><div class="staff-avatar">'+(s.photoUrl?'<img src="'+s.photoUrl+'">':(s.name[0]||'?'))+'</div><div class="staff-name">'+s.name+'</div><div class="staff-role">'+s.role+'</div></div>').join('')+'<div class="staff-card" onclick="openModal(\'staff\')" style="border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:90px;color:var(--muted)">+ Staff</div>';
   gi('cat-list').innerHTML=CATEGORIES.map(c=>'<div class="cat-card '+(c.active?'':'inactive')+'" onclick="openModal(\'editCat\','+c.id+')"><span>'+c.emoji+'</span><span>'+c.name+'</span></div>').join('')+'<div class="cat-card" onclick="openModal(\'category\')" style="border-style:dashed;color:var(--muted)">+ Catégorie</div>';
@@ -1488,11 +1508,11 @@ function openModal(type,id,extra){
   const fincats=['Cotisations','Subventions','Sponsoring','Tournois','Billetterie','Dons','Équipements','Déplacements','Terrain','Arbitrage','Médical','Administratif','Divers'];
 
   if(type==='club'){
-    b('✏️ MODIFIER LE CLUB','<div class="form-row"><div class="form-group"><label class="form-label">Nom du club *</label><input class="form-input" id="f-club-name" value="'+CLUB.name+'"></div><div class="form-group"><label class="form-label">Ville</label><input class="form-input" id="f-club-city" value="'+(CLUB.city||'')+'"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Ligue</label><input class="form-input" id="f-club-league" value="'+(CLUB.league||'')+'"></div><div class="form-group"><label class="form-label">Saison</label><input class="form-input" id="f-club-season" value="'+(CLUB.season||'')+'"></div></div><div class="form-group"><label class="form-label">Logo</label><div style="display:flex;align-items:center;gap:1rem">'+photoZone('f-club-logo',CLUB.logoUrl,'handlePhoto(event,"club")')+'<div style="flex:1;font-size:.75rem;color:var(--muted)">JPG, PNG · Max 5Mo</div></div><div class="form-group" style="margin-top:.5rem"><label class="form-label">Emoji</label><input class="form-input" id="f-club-emoji" value="'+(CLUB.emoji||'⚽')+'" style="max-width:80px"></div></div>');
+    b('✏️ MODIFIER LE CLUB','<div class="form-row"><div class="form-group"><label class="form-label">Nom du club *</label><input class="form-input" id="f-club-name" value="'+CLUB.name+'"></div><div class="form-group"><label class="form-label">Ville</label><input class="form-input" id="f-club-city" value="'+(CLUB.city||'')+'"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Ligue</label><input class="form-input" id="f-club-league" value="'+(CLUB.league||'')+'"></div><div class="form-group"><label class="form-label">Saison</label><input class="form-input" id="f-club-season" value="'+(CLUB.season||'')+'"></div></div><div class="form-group"><label class="form-label">Logo</label><div style="display:flex;align-items:center;gap:1rem">'+photoZone('f-club-logo',CLUB.logoUrl,'club')+'<div style="flex:1;font-size:.75rem;color:var(--muted)">JPG, PNG · Max 5Mo</div></div><div class="form-group" style="margin-top:.5rem"><label class="form-label">Emoji</label><input class="form-input" id="f-club-emoji" value="'+(CLUB.emoji||'⚽')+'" style="max-width:80px"></div></div>');
   }else if(type==='player'||type==='editPlayer'){
     const p=id?PLAYERS.find(pp=>pp.id===id):{id:0,name:'',num:'',pos:'CM',age:'',foot:'D',goals:0,assists:0,rating:6.5,tackles:0,saves:0,color:'#00E676',photoUrl:null};
     if(!p)return;
-    b((id?'✏️ MODIFIER':'👤 NOUVEAU')+' JOUEUR','<div style="display:flex;gap:1rem;align-items:flex-start;margin-bottom:.75rem">'+photoZone('f-player-photo',p.photoUrl,'handlePhoto(event,"player")')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom complet *</label><input class="form-input" id="f-p-name" value="'+p.name+'" placeholder="Prénom Nom"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Numéro</label><input class="form-input" id="f-p-num" type="number" value="'+p.num+'" min="1" max="99"></div><div class="form-group"><label class="form-label">Poste</label><select class="form-select" id="f-p-pos">'+positions.map(pp=>'<option '+(pp===p.pos?'selected':'')+'>'+pp+'</option>').join('')+'</select></div></div><div class="form-row"><div class="form-group"><label class="form-label">Âge</label><input class="form-input" id="f-p-age" type="number" value="'+p.age+'"></div><div class="form-group"><label class="form-label">Pied</label><select class="form-select" id="f-p-foot"><option value="D" '+(p.foot==='D'?'selected':'')+'>Droit</option><option value="G" '+(p.foot==='G'?'selected':'')+'>Gauche</option><option value="B" '+(p.foot==='B'?'selected':'')+'>Ambi</option></select></div></div><div class="form-row"><div class="form-group"><label class="form-label">Buts</label><input class="form-input" id="f-p-goals" type="number" value="'+p.goals+'"></div><div class="form-group"><label class="form-label">Passes D.</label><input class="form-input" id="f-p-assists" type="number" value="'+p.assists+'"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Note (0-10)</label><input class="form-input" id="f-p-rating" type="number" value="'+p.rating+'" min="0" max="10" step="0.1"></div><div class="form-group"><label class="form-label">Couleur</label><input class="form-input" id="f-p-color" type="color" value="'+p.color+'" style="height:40px;padding:2px"></div></div>'+(id?'<button class="btn btn-red btn-sm" onclick="deletePlayer('+id+')" style="margin-top:.5rem">🗑️ Supprimer</button>':''));
+    b((id?'✏️ MODIFIER':'👤 NOUVEAU')+' JOUEUR','<div style="display:flex;gap:1rem;align-items:flex-start;margin-bottom:.75rem">'+photoZone('f-player-photo',p.photoUrl,'player')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom complet *</label><input class="form-input" id="f-p-name" value="'+p.name+'" placeholder="Prénom Nom"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Numéro</label><input class="form-input" id="f-p-num" type="number" value="'+p.num+'" min="1" max="99"></div><div class="form-group"><label class="form-label">Poste</label><select class="form-select" id="f-p-pos">'+positions.map(pp=>'<option '+(pp===p.pos?'selected':'')+'>'+pp+'</option>').join('')+'</select></div></div><div class="form-row"><div class="form-group"><label class="form-label">Âge</label><input class="form-input" id="f-p-age" type="number" value="'+p.age+'"></div><div class="form-group"><label class="form-label">Pied</label><select class="form-select" id="f-p-foot"><option value="D" '+(p.foot==='D'?'selected':'')+'>Droit</option><option value="G" '+(p.foot==='G'?'selected':'')+'>Gauche</option><option value="B" '+(p.foot==='B'?'selected':'')+'>Ambi</option></select></div></div><div class="form-row"><div class="form-group"><label class="form-label">Buts</label><input class="form-input" id="f-p-goals" type="number" value="'+p.goals+'"></div><div class="form-group"><label class="form-label">Passes D.</label><input class="form-input" id="f-p-assists" type="number" value="'+p.assists+'"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Note (0-10)</label><input class="form-input" id="f-p-rating" type="number" value="'+p.rating+'" min="0" max="10" step="0.1"></div><div class="form-group"><label class="form-label">Couleur</label><input class="form-input" id="f-p-color" type="color" value="'+p.color+'" style="height:40px;padding:2px"></div></div>'+(id?'<button class="btn btn-red btn-sm" onclick="deletePlayer('+id+')" style="margin-top:.5rem">🗑️ Supprimer</button>':''));
   }else if(type==='session'){
     b('📋 NOUVELLE SESSION','<div class="form-group"><label class="form-label">Libellé *</label><input class="form-input" id="f-sess-label" placeholder="Ex: Entraînement — 15 jan."></div><div class="form-row"><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="f-sess-type"><option value="training">🏋️ Entraînement</option><option value="match">⚽ Match</option><option value="other">📋 Autre</option></select></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-sess-date" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div></div>');
   }else if(type==='event'){
@@ -1506,10 +1526,10 @@ function openModal(type,id,extra){
   }else if(type==='transaction'){
     b('💶 NOUVELLE TRANSACTION','<div class="form-row"><div class="form-group"><label class="form-label">Type</label><select class="form-select" id="f-fin-type"><option value="income" '+(id==='income'?'selected':'')+'>💚 Revenu</option><option value="expense" '+(id==='expense'?'selected':'')+'>🔴 Dépense</option></select></div><div class="form-group"><label class="form-label">Montant (€) *</label><input class="form-input" id="f-fin-amount" type="number" min="0" placeholder="0"></div></div><div class="form-group"><label class="form-label">Libellé *</label><input class="form-input" id="f-fin-label" placeholder="Description"></div><div class="form-row"><div class="form-group"><label class="form-label">Catégorie</label><select class="form-select" id="f-fin-cat">'+fincats.map(c=>'<option>'+c+'</option>').join('')+'</select></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f-fin-date" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div></div>');
   }else if(type==='staff'){
-    b('👤 AJOUTER STAFF','<div style="display:flex;gap:1rem;align-items:center;margin-bottom:.75rem">'+photoZone('f-staff-photo',null,'handlePhoto(event,"staff")')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="f-staff-name" placeholder="Prénom Nom"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Rôle</label><input class="form-input" id="f-staff-role" placeholder="Entraîneur, Président..."></div><div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-staff-phone" placeholder="06 XX XX XX XX"></div></div>');
+    b('👤 AJOUTER STAFF','<div style="display:flex;gap:1rem;align-items:center;margin-bottom:.75rem">'+photoZone('f-staff-photo',null,'staff')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="f-staff-name" placeholder="Prénom Nom"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Rôle</label><input class="form-input" id="f-staff-role" placeholder="Entraîneur, Président..."></div><div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-staff-phone" placeholder="06 XX XX XX XX"></div></div>');
   }else if(type==='editStaff'){
     const s=STAFF.find(ss=>ss.id===id);if(!s)return;
-    b('✏️ MODIFIER STAFF','<div style="display:flex;gap:1rem;align-items:center;margin-bottom:.75rem">'+photoZone('f-staff-photo',s.photoUrl,'handlePhoto(event,"staff")')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="f-staff-name" value="'+s.name+'"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Rôle</label><input class="form-input" id="f-staff-role" value="'+s.role+'"></div><div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-staff-phone" value="'+(s.phone||'')+'"></div></div><button class="btn btn-red btn-sm" onclick="deleteStaff('+id+')" style="margin-top:.5rem">🗑️ Supprimer</button>');
+    b('✏️ MODIFIER STAFF','<div style="display:flex;gap:1rem;align-items:center;margin-bottom:.75rem">'+photoZone('f-staff-photo',s.photoUrl,'staff')+'<div style="flex:1"><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="f-staff-name" value="'+s.name+'"></div></div></div><div class="form-row"><div class="form-group"><label class="form-label">Rôle</label><input class="form-input" id="f-staff-role" value="'+s.role+'"></div><div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="f-staff-phone" value="'+(s.phone||'')+'"></div></div><button class="btn btn-red btn-sm" onclick="deleteStaff('+id+')" style="margin-top:.5rem">🗑️ Supprimer</button>');
   }else if(type==='category'){
     b('📋 AJOUTER CATÉGORIE','<div class="form-row"><div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="f-cat-name" placeholder="Ex: Seniors A"></div><div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="f-cat-emoji" value="⚽" style="max-width:80px"></div></div>');
   }else if(type==='editCat'){
@@ -1898,6 +1918,47 @@ function wizFinish(){
   });
   if(wizIsFirstLaunch())setTimeout(showWizard,400);
   if(!HAS_STORAGE)setSaveLabel('📄 Local','var(--accent)');
+
+  // Photo zone event delegation
+  document.addEventListener('change', async function(e){
+    if(e.target.type==='file' && e.target.accept==='image/*'){
+      const zone = e.target.closest('[data-pz]');
+      if(!zone)return;
+      const target = zone.dataset.pz;
+      const file = e.target.files[0];
+      if(!file)return;
+      try{
+        _pendingPhoto = await readFile(file);
+        // Update preview
+        zone.querySelectorAll('img,.photo-clear,span').forEach(el=>el.remove());
+        const img=document.createElement('img');
+        img.src=_pendingPhoto;
+        img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radius);pointer-events:none';
+        zone.appendChild(img);
+        const btn=document.createElement('button');
+        btn.className='photo-clear';btn.dataset.clear=e.target.id;btn.textContent='✕';
+        zone.appendChild(btn);
+        if(target==='badge'){
+          const prev=gi('badge-prev');
+          if(prev)prev.innerHTML='<img src="'+_pendingPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px">';
+        }
+        toast('✅ Photo chargée');
+      }catch(err){toast('⚠️ '+err.message);}
+    }
+  });
+
+  // Clear button delegation
+  document.addEventListener('click', function(e){
+    if(e.target.classList.contains('photo-clear')||e.target.dataset.clear){
+      e.stopPropagation();
+      const zone=e.target.closest('[data-pz]');
+      if(zone){
+        zone.querySelectorAll('img,.photo-clear').forEach(el=>el.remove());
+        if(!zone.querySelector('span'))zone.insertAdjacentHTML('afterbegin','<span style="pointer-events:none;font-size:1.8rem">📷</span>');
+        _pendingPhoto=null;
+      }
+    }
+  });
 })();
 
 </script>
