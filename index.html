@@ -390,6 +390,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div id="tb-actions" style="display:flex;gap:.5rem">
       <button class="tb-btn" onclick="onAddBtn()">＋ <span id="add-label">Ajouter</span></button>
       <button class="tb-btn primary" onclick="exportPage()">↓ PDF</button>
+      <button class="tb-btn" onclick="showParentLogin()" title="Espace parents" style="padding:0 .6rem">👨‍👩‍👦</button>
     </div>
   </div>
 
@@ -496,25 +497,89 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="page-header">
         <div class="page-tag">// Compétition</div>
         <div class="page-title">RÉSULTATS</div>
-        <div class="page-sub">Classement & historique des matchs</div>
+        <div class="page-sub">Classement saison & plateaux</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
-        <div class="section-block">
-          <div class="section-head" id="standings-section-head">
-            <div class="section-head-title">🏆 Classement</div>
-            <div style="display:flex;gap:.3rem">
-              <div class="section-head-action" onclick="openModal('addStanding')">+ Équipe</div>
-              <div class="section-head-action" onclick="resetStandings()">🔄 Zéro</div>
+      <!-- Mode switch -->
+      <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;align-items:center">
+        <button class="btn active" id="btn-mode-classement" onclick="setResultMode('classement')">🏆 Classement</button>
+        <button class="btn" id="btn-mode-plateau" onclick="setResultMode('plateau')">🟢 Plateaux</button>
+        <span style="font-size:.72rem;color:var(--muted);margin-left:.5rem" id="result-mode-hint">Seniors / U18 — classement saison</span>
+      </div>
+      <!-- Mode classement -->
+      <div id="results-classement">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+          <div class="section-block">
+            <div class="section-head">
+              <div class="section-head-title">🏆 Classement</div>
+              <div style="display:flex;gap:.3rem">
+                <div class="section-head-action" onclick="openModal('addStanding')">+ Équipe</div>
+                <div class="section-head-action" onclick="resetStandings()">🔄 Zéro</div>
+              </div>
+            </div>
+            <div style="overflow-x:auto"><table class="standings-table" id="standings-table"></table></div>
+          </div>
+          <div class="section-block">
+            <div class="section-head">
+              <div class="section-head-title">⚽ Derniers matchs</div>
+              <div class="section-head-action" onclick="openModal('result')">+ Ajouter</div>
+            </div>
+            <div id="results-list"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Mode plateau -->
+      <div id="results-plateau" style="display:none">
+        <!-- Bilan saison -->
+        <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.25rem" id="plateau-kpis"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+          <!-- Saisir un plateau -->
+          <div class="section-block">
+            <div class="section-head">
+              <div class="section-head-title">➕ Nouveau plateau</div>
+            </div>
+            <div style="padding:.75rem">
+              <div class="form-group">
+                <label class="form-label">Date du plateau</label>
+                <input class="form-input" id="p-date" type="date" value="">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Lieu</label>
+                <input class="form-input" id="p-lieu" placeholder="Ex: Stade Municipal">
+              </div>
+              <div id="plateau-matches">
+                <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin:.5rem 0 .4rem;text-transform:uppercase;letter-spacing:.06em">Match 1</div>
+                <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.4rem;align-items:center;margin-bottom:.5rem">
+                  <input class="form-input" id="p-m1-home" value="" placeholder="Notre équipe">
+                  <div style="font-weight:700;color:var(--muted);text-align:center">vs</div>
+                  <input class="form-input" id="p-m1-away" placeholder="Adversaire">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.4rem;align-items:center;margin-bottom:.75rem">
+                  <input class="form-input" id="p-m1-sh" type="number" value="0" min="0" style="text-align:center">
+                  <div style="font-weight:700;color:var(--muted);text-align:center">-</div>
+                  <input class="form-input" id="p-m1-sa" type="number" value="0" min="0" style="text-align:center">
+                </div>
+                <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin:.5rem 0 .4rem;text-transform:uppercase;letter-spacing:.06em">Match 2</div>
+                <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.4rem;align-items:center;margin-bottom:.5rem">
+                  <input class="form-input" id="p-m2-home" value="" placeholder="Notre équipe">
+                  <div style="font-weight:700;color:var(--muted);text-align:center">vs</div>
+                  <input class="form-input" id="p-m2-away" placeholder="Adversaire">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.4rem;align-items:center;margin-bottom:.75rem">
+                  <input class="form-input" id="p-m2-sh" type="number" value="0" min="0" style="text-align:center">
+                  <div style="font-weight:700;color:var(--muted);text-align:center">-</div>
+                  <input class="form-input" id="p-m2-sa" type="number" value="0" min="0" style="text-align:center">
+                </div>
+              </div>
+              <button class="btn btn-green" style="width:100%" onclick="savePlateau()">✅ Enregistrer le plateau</button>
             </div>
           </div>
-          <div style="overflow-x:auto"><table class="standings-table" id="standings-table"></table></div>
-        </div>
-        <div class="section-block">
-          <div class="section-head">
-            <div class="section-head-title">⚽ Derniers matchs</div>
-            <div class="section-head-action" onclick="openModal('result')">+ Ajouter</div>
+          <!-- Historique plateaux -->
+          <div class="section-block">
+            <div class="section-head">
+              <div class="section-head-title">📋 Historique des plateaux</div>
+            </div>
+            <div id="plateau-history"></div>
           </div>
-          <div id="results-list"></div>
         </div>
       </div>
     </div>
@@ -755,6 +820,45 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- ══ PARENT LOGIN ══ -->
+<div class="wizard-overlay" id="parent-login" style="display:none">
+  <div class="wizard-box" style="max-width:420px">
+    <div class="wizard-header" style="text-align:center;padding:2rem 1.5rem 1rem">
+      <div style="font-size:2.5rem;margin-bottom:.5rem">👨‍👩‍👦</div>
+      <div class="wizard-title" style="font-size:1.4rem" id="parent-login-club">ManageMyTeam</div>
+      <div class="wizard-sub">Espace Parents — Accès lecture seule</div>
+    </div>
+    <div class="wizard-body" style="padding:1rem 1.5rem 1.5rem">
+      <div class="form-group">
+        <label class="form-label">Votre code d'accès</label>
+        <input class="form-input" id="parent-code-input" placeholder="Ex: MARTIN-4X7K" 
+          style="font-size:1rem;letter-spacing:.1em;text-transform:uppercase;text-align:center"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')submitParentLogin()">
+        <div style="font-size:.72rem;color:var(--muted);margin-top:.4rem;text-align:center">
+          Code fourni par l'entraîneur de votre enfant
+        </div>
+      </div>
+      <div id="parent-login-error" style="color:var(--red);font-size:.78rem;text-align:center;min-height:1.2rem"></div>
+      <button class="btn btn-green" style="width:100%;height:42px;font-size:.9rem;margin-top:.5rem" onclick="submitParentLogin()">
+        🔓 Accéder à l'espace parent
+      </button>
+      <div style="text-align:center;margin-top:1rem">
+        <button class="btn" style="font-size:.78rem" onclick="gi('parent-login').style.display='none'">
+          🔑 Accès coach
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PARENT BANNER (shown in parent mode) ══ -->
+<div id="parent-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(90deg,#4DABF7,#00E676);color:#000;padding:.4rem 1rem;display:flex;align-items:center;gap:.75rem;font-size:.8rem;font-weight:700">
+  <span>👨‍👩‍👦 Mode Parent</span>
+  <span id="parent-player-name" style="opacity:.7"></span>
+  <span style="margin-left:auto;cursor:pointer;opacity:.7" onclick="exitParentMode()">✕ Quitter</span>
+</div>
+
 <!-- ══ WIZARD ══ -->
 <div class="wizard-overlay" id="wizard-overlay">
   <div class="wizard-box">
@@ -792,6 +896,8 @@ const WIZARD_KEY  = 'mmt_wiz';
 let currentPlan = PLAN.FREE;
 let currentPage = 'home';
 let currentModal = null;
+let _parentMode = false;   // true = mode lecture seule parent
+let _parentPlayer = null;  // joueur identifié par le code parent
 let _editId      = null;
 let _pendingPhoto= null;
 let _saveTimer   = null;
@@ -940,7 +1046,7 @@ const HAS_STORAGE = storageOK();
 function saveAll(){
   if(!HAS_STORAGE)return;
   try{
-    const data={v:2,savedAt:new Date().toISOString(),CLUB,TEAM,SEASONS,PLAYERS,SUB_TEAMS,EVENTS,SESSIONS,ATTENDANCE,INJURIES,STAFF,CATEGORIES,NEWS,PROJECTS,RESULTS,STANDINGS,FIN_TRANSACTIONS,FIN_BUDGETS,NOTIFICATIONS,REMINDERS,currentPlan};
+    const data={v:2,savedAt:new Date().toISOString(),CLUB,TEAM,SEASONS,PLAYERS,SUB_TEAMS,EVENTS,SESSIONS,ATTENDANCE,INJURIES,STAFF,CATEGORIES,NEWS,PROJECTS,RESULTS,STANDINGS,PLATEAUX,FIN_TRANSACTIONS,FIN_BUDGETS,NOTIFICATIONS,REMINDERS,currentPlan};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
     setSaveLabel('✓ Sauvegardé','#00E676');
     setTimeout(()=>setSaveLabel('💾 Auto-save',''),2500);
@@ -968,7 +1074,7 @@ function loadAll(){
     fill(SEASONS,d.SEASONS);fill(PLAYERS,d.PLAYERS);fill(SUB_TEAMS,d.SUB_TEAMS);
     fill(EVENTS,d.EVENTS);fill(SESSIONS,d.SESSIONS);
     fill(INJURIES,d.INJURIES);fill(STAFF,d.STAFF);fill(CATEGORIES,d.CATEGORIES);
-    fill(NEWS,d.NEWS);fill(PROJECTS,d.PROJECTS);fill(RESULTS,d.RESULTS);
+    fill(NEWS,d.NEWS);fill(PROJECTS,d.PROJECTS);fill(RESULTS,d.RESULTS);fill(PLATEAUX,d.PLATEAUX||[]);
     fill(STANDINGS,d.STANDINGS);fill(FIN_TRANSACTIONS,d.FIN_TRANSACTIONS);
     fill(FIN_BUDGETS,d.FIN_BUDGETS);fill(NOTIFICATIONS,d.NOTIFICATIONS);
     fill(REMINDERS,d.REMINDERS);
@@ -1029,6 +1135,18 @@ function activeSeason(){return SEASONS.find(s=>s.active)?.label||CLUB.season||''
 function isPro(){return currentPlan===PLAN.PRO;}
 function nextId(arr){return arr.length?Math.max(...arr.map(x=>x.id))+1:1;}
 function groupBy(arr,key){return arr.reduce((a,x)=>{(a[x[key]]=a[x[key]]||[]).push(x);return a;},{});}
+
+// Generate a deterministic parent code from player id + name
+function genParentCode(player){
+  const base = (player.name.split(' ')[1]||player.name).toUpperCase().replace(/[^A-Z]/g,'').slice(0,6);
+  const hash = ((player.id * 7919 + 1234) % 9999).toString(16).toUpperCase().padStart(4,'0');
+  return base + '-' + hash;
+}
+
+// Ensure all players have a parentCode
+function ensureParentCodes(){
+  PLAYERS.forEach(p => { if(!p.parentCode) p.parentCode = genParentCode(p); });
+}
 function posColor(pos){
   if(pos==='GK')return'#FF4757';
   if(['CB','LB','RB','LWB','RWB'].includes(pos))return'#F0B429';
@@ -1770,6 +1888,7 @@ function newSeason(){
   INJURIES.length=0;
   EVENTS.length=0;
   RESULTS.length=0;
+  PLATEAUX.length=0;
   STANDINGS.forEach(s=>{s.pts=0;s.j=0;s.v=0;s.n=0;s.d=0;s.bp=0;s.bc=0;});
   NOTIFICATIONS.length=0;
   FIN_TRANSACTIONS.length=0;
@@ -1903,6 +2022,282 @@ function wizFinish(){
   gi('wizard-overlay').classList.remove('show');
   saveAll();renderHome();renderTeam();
   toast('🎉 Bienvenue sur ManageMyTeam !');
+}
+
+// ═══════════════════════════════════
+//  MODE RÉSULTATS (Classement / Plateau)
+// ═══════════════════════════════════
+let _resultMode = 'classement';
+let PLATEAUX = []; // {id, date, lieu, matches:[{home,away,sh,sa}]}
+
+function setResultMode(mode) {
+  _resultMode = mode;
+  gi('results-classement').style.display = mode==='classement' ? '' : 'none';
+  gi('results-plateau').style.display    = mode==='plateau'    ? '' : 'none';
+  gi('btn-mode-classement').classList.toggle('active', mode==='classement');
+  gi('btn-mode-plateau').classList.toggle('active', mode==='plateau');
+  gi('result-mode-hint').textContent = mode==='classement'
+    ? 'Seniors / U18 — classement saison'
+    : 'U14 et moins — plateaux journée';
+  if (mode==='plateau') renderPlateau();
+  else renderResults();
+}
+
+function savePlateau() {
+  const date  = gi('p-date')?.value;
+  const lieu  = gi('p-lieu')?.value?.trim() || '';
+  if (!date) { toast('⚠️ Date requise'); return; }
+
+  const m1home = gi('p-m1-home')?.value?.trim() || CLUB.name;
+  const m1away = gi('p-m1-away')?.value?.trim();
+  const m1sh   = parseInt(gi('p-m1-sh')?.value) || 0;
+  const m1sa   = parseInt(gi('p-m1-sa')?.value) || 0;
+  const m2home = gi('p-m2-home')?.value?.trim() || CLUB.name;
+  const m2away = gi('p-m2-away')?.value?.trim();
+  const m2sh   = parseInt(gi('p-m2-sh')?.value) || 0;
+  const m2sa   = parseInt(gi('p-m2-sa')?.value) || 0;
+
+  if (!m1away || !m2away) { toast('⚠️ Renseignez les adversaires'); return; }
+
+  const plateau = {
+    id: nextId(PLATEAUX),
+    date, lieu,
+    matches: [
+      { home: m1home, away: m1away, sh: m1sh, sa: m1sa },
+      { home: m2home, away: m2away, sh: m2sh, sa: m2sa },
+    ]
+  };
+  PLATEAUX.unshift(plateau);
+
+  // Reset form
+  gi('p-date').value = new Date().toISOString().slice(0,10);
+  gi('p-lieu').value = '';
+  gi('p-m1-home').value = CLUB.name;
+  gi('p-m1-away').value = '';
+  gi('p-m1-sh').value = '0'; gi('p-m1-sa').value = '0';
+  gi('p-m2-home').value = CLUB.name;
+  gi('p-m2-away').value = '';
+  gi('p-m2-sh').value = '0'; gi('p-m2-sa').value = '0';
+
+  scheduleSave();
+  renderPlateau();
+  toast('✅ Plateau enregistré');
+}
+
+function deletePlateau(id) {
+  if (!confirm('Supprimer ce plateau ?')) return;
+  const i = PLATEAUX.findIndex(p => p.id === id);
+  if (i > -1) { PLATEAUX.splice(i, 1); renderPlateau(); scheduleSave(); toast('Plateau supprimé'); }
+}
+
+function renderPlateau() {
+  // Pre-fill team name in form
+  const m1h = gi('p-m1-home'); if (m1h && !m1h.value) m1h.value = CLUB.name;
+  const m2h = gi('p-m2-home'); if (m2h && !m2h.value) m2h.value = CLUB.name;
+  const pd  = gi('p-date');    if (pd && !pd.value)    pd.value  = new Date().toISOString().slice(0,10);
+
+  // Compute bilan saison
+  let totalPlateaux = PLATEAUX.length;
+  let totalV=0, totalN=0, totalD=0, totalBP=0, totalBC=0;
+
+  PLATEAUX.forEach(p => {
+    p.matches.forEach(m => {
+      const isHome = m.home === CLUB.name;
+      const gs = isHome ? m.sh : m.sa;
+      const gc = isHome ? m.sa : m.sh;
+      totalBP += gs; totalBC += gc;
+      if (gs > gc) totalV++;
+      else if (gs === gc) totalN++;
+      else totalD++;
+    });
+  });
+
+  // KPIs
+  const kpis = gi('plateau-kpis');
+  if (kpis) kpis.innerHTML = [
+    ['b', totalPlateaux, 'Plateaux joués'],
+    ['g', totalV, 'Victoires'],
+    ['y', totalN, 'Nuls'],
+    ['r', totalD, 'Défaites'],
+  ].map(([c,v,l]) => '<div class="kpi"><div class="kpi-val '+c+'">'+v+'</div><div class="kpi-label">'+l+'</div></div>').join('');
+
+  // Historique
+  const hist = gi('plateau-history');
+  if (!hist) return;
+  if (!PLATEAUX.length) {
+    hist.innerHTML = '<div class="section-empty">Aucun plateau enregistré</div>';
+    return;
+  }
+
+  hist.innerHTML = PLATEAUX.map(p => {
+    // Calcul classement du plateau
+    const teams = {};
+    const addTeam = (name) => { if (!teams[name]) teams[name] = {name, pts:0, j:0, v:0, n:0, d:0, bp:0, bc:0}; };
+    p.matches.forEach(m => {
+      addTeam(m.home); addTeam(m.away);
+      teams[m.home].j++; teams[m.away].j++;
+      teams[m.home].bp += m.sh; teams[m.home].bc += m.sa;
+      teams[m.away].bp += m.sa; teams[m.away].bc += m.sh;
+      if (m.sh > m.sa) { teams[m.home].v++; teams[m.home].pts+=3; teams[m.away].d++; }
+      else if (m.sh < m.sa) { teams[m.away].v++; teams[m.away].pts+=3; teams[m.home].d++; }
+      else { teams[m.home].n++; teams[m.home].pts++; teams[m.away].n++; teams[m.away].pts++; }
+    });
+    const sorted = Object.values(teams).sort((a,b) => b.pts-a.pts || (b.bp-b.bc)-(a.bp-a.bc) || b.bp-a.bp);
+
+    const matchRows = p.matches.map(m => {
+      const isHome = m.home === CLUB.name || m.away === CLUB.name;
+      const gs = m.home === CLUB.name ? m.sh : (m.away === CLUB.name ? m.sa : m.sh);
+      const gc = m.home === CLUB.name ? m.sa : (m.away === CLUB.name ? m.sh : m.sa);
+      const cls = isHome ? (gs > gc ? 'result-win' : gs === gc ? 'result-draw' : 'result-loss') : '';
+      return '<div class="result-item" style="padding:.4rem .75rem">'
+        + '<div style="font-size:.78rem;flex:1">'+m.home+' <span style="color:var(--muted)">vs</span> '+m.away+'</div>'
+        + '<div class="result-score '+cls+'" style="font-size:.85rem">'+m.sh+' - '+m.sa+'</div>'
+        + '</div>';
+    }).join('');
+
+    const rankRows = sorted.map((t, i) => {
+      const isUs = t.name === CLUB.name;
+      const medals = ['🥇','🥈','🥉','4️⃣'];
+      return '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .75rem;'+(isUs?'background:rgba(0,230,118,.06);':'')+'border-bottom:1px solid var(--border)">'
+        + '<span style="font-size:.9rem">'+medals[i]+'</span>'
+        + '<span style="flex:1;font-size:.78rem;font-weight:'+(isUs?'700':'500')+'">'+t.name+'</span>'
+        + '<span style="font-family:monospace;font-size:.72rem;color:var(--muted)">'+t.j+'J '+t.bp+'-'+t.bc+'</span>'
+        + '<span style="font-family:monospace;font-size:.78rem;font-weight:700;color:'+(isUs?'var(--green)':'var(--text)')+'">'+t.pts+' pts</span>'
+        + '</div>';
+    }).join('');
+
+    return '<div style="border-bottom:2px solid var(--border);padding:.75rem 0;margin-bottom:.25rem">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 .75rem .5rem">'
+      + '<div><div style="font-weight:700;font-size:.85rem">📅 '+fmtDate(p.date)+'</div>'
+      + (p.lieu?'<div style="font-size:.7rem;color:var(--muted)">📍 '+p.lieu+'</div>':'')
+      + '</div>'
+      + '<button class="btn btn-sm" onclick="deletePlateau('+p.id+')" style="color:var(--red);border-color:rgba(255,71,87,.3)">🗑️</button>'
+      + '</div>'
+      + '<div style="font-size:.7rem;font-weight:700;color:var(--muted);padding:0 .75rem .2rem;letter-spacing:.06em;text-transform:uppercase">Matchs</div>'
+      + matchRows
+      + '<div style="font-size:.7rem;font-weight:700;color:var(--muted);padding:.5rem .75rem .2rem;letter-spacing:.06em;text-transform:uppercase">Classement du plateau</div>'
+      + rankRows
+      + '</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════
+//  MODE PARENT (lecture seule)
+// ═══════════════════════════════════
+
+function showParentLogin() {
+  gi('parent-login-club').textContent = CLUB.name + ' — Espace Parents';
+  gi('parent-code-input').value = '';
+  gi('parent-login-error').textContent = '';
+  gi('parent-login').style.display = 'flex';
+  setTimeout(() => gi('parent-code-input')?.focus(), 100);
+}
+
+function submitParentLogin() {
+  ensureParentCodes();
+  const code = gi('parent-code-input')?.value?.trim().toUpperCase();
+  if (!code) { gi('parent-login-error').textContent = '⚠️ Entrez votre code'; return; }
+  const player = PLAYERS.find(p => p.parentCode === code);
+  if (!player) {
+    gi('parent-login-error').textContent = '❌ Code incorrect — vérifiez avec l\'entraîneur';
+    return;
+  }
+  gi('parent-login').style.display = 'none';
+  enterParentMode(player);
+}
+
+function enterParentMode(player) {
+  _parentMode = true;
+  _parentPlayer = player;
+
+  // Show banner
+  const banner = gi('parent-banner');
+  if (banner) {
+    banner.style.display = 'flex';
+    gi('parent-player-name').textContent = '— ' + player.name;
+  }
+
+  // Push down the app
+  const app = document.querySelector('.app');
+  if (app) app.style.paddingTop = '32px';
+
+  // Hide restricted nav items
+  const restricted = ['nav-finance','nav-upgrade','nav-tactical'];
+  restricted.forEach(id => { const el=gi(id); if(el) el.style.display='none'; });
+
+  // Hide all edit buttons, add buttons, PDF export
+  document.querySelectorAll('.section-head-action, .tb-btn.primary, #tb-actions .tb-btn:first-child').forEach(el => {
+    el.style.display = 'none';
+  });
+
+  // Hide topbar add/PDF
+  const actions = gi('tb-actions');
+  if (actions) actions.style.display = 'none';
+
+  // Navigate to home in parent mode
+  nav('home');
+
+  toast('👨‍👩‍👦 Bienvenue ' + player.name.split(' ')[1] + ' — Mode lecture seule');
+}
+
+function exitParentMode() {
+  _parentMode = false;
+  _parentPlayer = null;
+
+  // Hide banner
+  const banner = gi('parent-banner');
+  if (banner) banner.style.display = 'none';
+
+  // Reset app padding
+  const app = document.querySelector('.app');
+  if (app) app.style.paddingTop = '';
+
+  // Restore nav items
+  const restricted = ['nav-finance','nav-upgrade','nav-tactical'];
+  restricted.forEach(id => { const el=gi(id); if(el) el.style.display=''; });
+
+  // Restore topbar actions
+  const actions = gi('tb-actions');
+  if (actions) actions.style.display = 'flex';
+
+  // Restore section head actions
+  document.querySelectorAll('.section-head-action').forEach(el => el.style.display = '');
+
+  nav('home');
+  toast('🔑 Mode coach restauré');
+}
+
+function showParentCodes() {
+  ensureParentCodes();
+  gi('modal-title').textContent = '👨‍👩‍👦 CODES D\'ACCÈS PARENTS';
+  gi('modal-body').innerHTML = '<div style="margin-bottom:.75rem;font-size:.8rem;color:var(--muted)">Partagez le code correspondant à chaque joueur avec ses parents.</div>'
+    + '<div style="max-height:400px;overflow-y:auto">'
+    + PLAYERS.map(p => '<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .5rem;border-bottom:1px solid var(--border)">'
+      + avatar(p, 30)
+      + '<span style="flex:1;font-size:.82rem;font-weight:500;margin-left:.35rem">' + p.name + '</span>'
+      + '<code style="background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:.2rem .6rem;font-family:monospace;font-size:.78rem;letter-spacing:.08em;color:var(--green)">' + p.parentCode + '</code>'
+      + '<button class="btn btn-sm" onclick="copyCode(\'' + p.parentCode + '\')" style="padding:0 .5rem">📋</button>'
+      + '</div>'
+    ).join('')
+    + '</div>'
+    + '<div style="margin-top:.75rem;background:rgba(77,171,247,.08);border:1px solid rgba(77,171,247,.2);border-radius:8px;padding:.65rem;font-size:.75rem;color:var(--muted)">'
+    + '💡 Le parent entre son code sur la page d\'accueil (bouton 👨‍👩‍👦) et accède en lecture seule au calendrier, résultats, convocations et stats.'
+    + '</div>';
+  gi('modal-footer').innerHTML = '<button class="btn btn-ghost" onclick="closeModal()">Fermer</button><button class="btn btn-green" onclick="copyAllCodes()">📋 Copier tous</button>';
+  gi('modal-overlay').classList.add('open');
+  currentModal = 'parentCodes';
+}
+
+function copyCode(code) {
+  navigator.clipboard?.writeText(code).then(() => toast('📋 Code copié : ' + code)).catch(() => toast(code));
+}
+
+function copyAllCodes() {
+  ensureParentCodes();
+  const text = PLAYERS.map(p => p.name + ' : ' + p.parentCode).join('\n');
+  navigator.clipboard?.writeText(text).then(() => toast('📋 Tous les codes copiés !')).catch(() => {
+    prompt('Copiez les codes :', text);
+  });
 }
 
 // ─── INIT ───
