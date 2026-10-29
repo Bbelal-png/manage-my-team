@@ -961,7 +961,10 @@ body.parent-mode .tb-btn.coach-only { display: none !important; }
 <div id="parent-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(90deg,#4DABF7,#00E676);color:#000;padding:.4rem 1rem;align-items:center;gap:.75rem;font-size:.8rem;font-weight:700">
   <span>👨‍👩‍👦 Mode Parent</span>
   <span id="parent-player-name" style="opacity:.7"></span>
-  <span style="margin-left:auto;cursor:pointer;opacity:.7" onclick="logout()">✕ Quitter</span>
+  <span style="margin-left:auto;display:flex;gap:1rem;align-items:center">
+    <span id="parent-refresh" style="display:none;cursor:pointer;font-weight:800" onclick="refreshRemoteParent(true)">🔄 Actualiser</span>
+    <span style="cursor:pointer;opacity:.7" onclick="logout()">✕ Quitter</span>
+  </span>
 </div>
 
 <!-- ══ WIZARD ══ -->
@@ -1045,6 +1048,8 @@ let currentModal = null;
 let _parentMode = false;   // true = mode lecture seule parent
 let _parentPlayer = null;  // joueur identifié par le code parent
 let _remoteParent = false; // true = données reçues du serveur (jamais enregistrées sur cet appareil)
+let _lastRemoteLoad = 0; // moment du dernier chargement des données côté parent
+let _remotePublishedAt = null; // date de la dernière publication du coach, côté parent
 let _editId      = null;
 let _pendingPhoto= null;
 let _saveTimer   = null;
@@ -3379,10 +3384,11 @@ function applySessionUI(){
     // Parent mode
     document.body.classList.add('parent-mode');
     if(_session.remote)document.body.classList.add('remote-parent');
+    const rfb=gi('parent-refresh');if(rfb)rfb.style.display=_session.remote?'':'none';
     _parentMode=true;
     _parentPlayer=PLAYERS.find(p=>p.id===_session.playerId)||null;
     const pb=gi('parent-banner');
-    if(pb){pb.style.display='flex';const pn=gi('parent-player-name');if(pn)pn.textContent='— '+(_parentPlayer?_parentPlayer.name:'');}
+    if(pb){pb.style.display='flex';const pn=gi('parent-player-name');if(pn)pn.textContent='— '+(_parentPlayer?_parentPlayer.name:'')+(_remotePublishedAt?' · données publiées le '+new Date(_remotePublishedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');}
     const appEl=document.querySelector('.app');if(appEl)appEl.style.paddingTop='32px';
     // Navigate to parent home
     nav('calendar');
@@ -3512,7 +3518,7 @@ const fsUrl = (coll, id) => 'https://firestore.googleapis.com/v1/projects/' + FI
   '/databases/(default)/documents/' + coll + '/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(FIREBASE_CONFIG.apiKey);
 
 async function fsGet(coll, id) {
-  const res = await fetch(fsUrl(coll, id));
+  const res = await fetch(fsUrl(coll, id), { cache: 'no-store' }); // toujours la version la plus récente
   if (res.status === 404) return null;
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw cloudError(res.status, j);
@@ -3666,7 +3672,7 @@ async function publishToParents() {
     CLUB.sharePublished = current;
     CLUB.sharePublishedAt = new Date().toISOString();
     scheduleSave();
-    say('✅ Publié : ' + kids.length + ' fiche(s)' + (orphans.length ? ' · ' + orphans.length + ' ancien(s) code(s) retiré(s)' : ''));
+    say('✅ Publié : ' + kids.length + ' fiche(s) · ' + shared.events.length + ' événement(s) · ' + shared.projects.length + ' projet(s) · ' + shared.results.length + ' résultat(s)' + (orphans.length ? ' · ' + orphans.length + ' ancien(s) code(s) retiré(s)' : ''));
     renderShareModal(true);
   } catch (e) { say('⚠️ ' + cloudMsg(e)); }
 }
@@ -3674,6 +3680,8 @@ async function publishToParents() {
 // ─── Côté parent : lecture du code puis chargement des données reçues ───
 function loadRemoteSnapshot(kid, shared) {
   _remoteParent = true;
+  _remotePublishedAt = shared.publishedAt || null;
+  _lastRemoteLoad = Date.now();
   // Tout ce qui était en mémoire (données de démonstration, ou données locales) est vidé : rien du club n'est conservé
   [SEASONS, PLAYERS, SUB_TEAMS, EVENTS, SESSIONS, INJURIES, STAFF, CATEGORIES, NEWS, PROJECTS, RESULTS, STANDINGS,
    PLATEAUX, PLATEAU_TEAMS, FIN_TRANSACTIONS, FIN_BUDGETS, NOTIFICATIONS, REMINDERS].forEach(a => { a.length = 0; });
@@ -3726,6 +3734,30 @@ async function loginParentRemote(rawCode, opts) {
   } catch (e) { showLoginError(cloudMsg(e)); return false; }
 }
 
+// Les données du parent sont chargées à la connexion : sans rechargement, une nouvelle publication du coach n'apparaît pas.
+// Cette fonction les relit (bouton « Actualiser », et automatiquement au retour sur la page après 1 minute).
+async function refreshRemoteParent(manual) {
+  if (!_remoteParent) return;
+  let code = null; try { code = localStorage.getItem(PARENT_LS); } catch (e) {}
+  if (!code) return;
+  try {
+    const kid = await fsGet('kids', code);
+    const shared = kid && kid.sharedId ? await fsGet('shared', kid.sharedId) : null;
+    if (!kid || !shared) { if (manual) toast('⚠️ Données introuvables : le code a peut-être changé'); return; }
+    const changed = shared.publishedAt !== _remotePublishedAt;
+    loadRemoteSnapshot(kid, shared);
+    const pn = gi('parent-player-name');
+    if (pn) pn.textContent = '— ' + (_parentPlayer ? _parentPlayer.name : '') + ' · données publiées le ' + new Date(_remotePublishedAt).toLocaleString('fr-FR');
+    const page = currentPage; currentPage = ''; nav(page); // on réaffiche la page en cours avec les nouvelles données
+    if (manual) toast(changed ? '✅ Données mises à jour' : 'Déjà à jour');
+  } catch (e) { if (manual) toast('⚠️ ' + cloudMsg(e)); }
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _remoteParent && Date.now() - _lastRemoteLoad > 60000) refreshRemoteParent(false);
+  });
+}
+
 // ─── Fenêtre « Partage avec les parents » (coach) ───
 function copyText(text, okMsg) {
   const fallback = () => {
@@ -3767,6 +3799,24 @@ async function shareSelfTest() {
   } catch (e) { lines.push('⚠️ ' + cloudMsg(e)); show(); }
 }
 
+async function shareVerify() {
+  const el = gi('share-status'); const say = (t) => { if (el) el.textContent = t; };
+  try {
+    if (!CLUB.shareId) { say("Rien n'a encore été publié depuis cet appareil."); return; }
+    say('Lecture du serveur…');
+    const s = await fsGet('shared', CLUB.shareId);
+    if (!s) { say('⚠️ Aucune donnée publiée à cette adresse. Cliquez sur « Publier pour les parents ».'); return; }
+    const line = (label, srv, loc) => label + ' : serveur ' + srv + ' · chez vous ' + loc + (srv === loc ? ' ✓' : ' ⚠️ différent');
+    say(['Publié le ' + new Date(s.publishedAt).toLocaleString('fr-FR'),
+      line('Événements', (s.events || []).length, EVENTS.length),
+      line('Résultats', (s.results || []).length, RESULTS.length),
+      line('Projets', (s.projects || []).length, PROJECTS.length),
+      line('Joueurs', (s.players || []).length, PLAYERS.length),
+      (s.projects || []).length ? 'Projets publiés : ' + s.projects.map(p => p.title).join(', ') : '']
+      .filter(Boolean).join('\n'));
+  } catch (e) { say('⚠️ ' + cloudMsg(e)); }
+}
+
 function renderShareModal(keepStatus) {
   const status = keepStatus ? (gi('share-status')?.textContent || '') : '';
   ensureShareCodes();
@@ -3787,6 +3837,7 @@ function renderShareModal(keepStatus) {
   gi('modal-title').textContent = '☁️ PARTAGE AVEC LES PARENTS';
   gi('modal-body').innerHTML = auth +
     '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem"><button class="btn btn-green" onclick="publishToParents()">☁️ Publier pour les parents</button>' +
+    '<button class="btn btn-sm" onclick="shareVerify()">Vérifier la publication</button>' +
     '<button class="btn btn-sm" onclick="shareSelfTest()">Tester la connexion</button></div>' +
     '<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">' + last + '<br>Les parents voient les données de la dernière publication.</div>' +
     '<div id="share-status" style="white-space:pre-line;font-size:.75rem;min-height:1.2em;margin-bottom:.6rem;color:var(--accent)">' + escHtml(status) + '</div>' +
