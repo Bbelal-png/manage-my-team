@@ -1050,6 +1050,7 @@ let _parentMode = false;   // true = mode lecture seule parent
 let _parentPlayer = null;  // joueur identifié par le code parent
 let _remoteParent = false; // true = données reçues du serveur (jamais enregistrées sur cet appareil)
 let _lastRemoteLoad = 0; // moment du dernier chargement des données côté parent
+let _noSave = false; // true juste avant un rechargement qui remplace les données : on ne doit rien réécrire par-dessus
 let _remotePublishedAt = null; // date de la dernière publication du coach, côté parent
 let _editId      = null;
 let _pendingPhoto= null;
@@ -1181,7 +1182,7 @@ function storageOK(){try{localStorage.setItem('_t','1');localStorage.removeItem(
 const HAS_STORAGE = storageOK();
 
 function saveAll(){
-  if(!HAS_STORAGE||_remoteParent)return;
+  if(!HAS_STORAGE||_remoteParent||_noSave)return;
   try{
     const data={v:2,savedAt:new Date().toISOString(),CLUB,TEAM,SEASONS,PLAYERS,SUB_TEAMS,EVENTS,SESSIONS,ATTENDANCE,INJURIES,STAFF,CATEGORIES,NEWS,PROJECTS,RESULTS,STANDINGS,PLATEAUX,PLATEAU_TEAMS,FIN_TRANSACTIONS,FIN_BUDGETS,NOTIFICATIONS,REMINDERS,currentPlan};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
@@ -1226,6 +1227,7 @@ function setSaveLabel(t,c){const el=gi('tb-save');if(el){el.textContent=t;el.sty
 
 function exportJSON(){
   if(!HAS_STORAGE){toast('⚠️ Storage non disponible');return;}
+  saveAll(); // l'export contient ce qui est à l'écran, pas une copie qui aurait pu rester en retard
   const raw=localStorage.getItem(STORAGE_KEY)||'{}';
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));
@@ -1234,32 +1236,41 @@ function exportJSON(){
 }
 
 function importJSON(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
   inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
     const fr=new FileReader();
     fr.onload=ev=>{
+      let d;
+      try{d=JSON.parse(ev.target.result);}catch{toast('⚠️ Fichier illisible (JSON invalide)');return;}
+      if(!d||d.v!==2||!Array.isArray(d.PLAYERS)){toast('⚠️ Ce fichier n\'est pas une sauvegarde ManageMyTeam');return;}
+      const resume=d.PLAYERS.length+' joueur(s), '+(d.RESULTS||[]).length+' résultat(s), '+(d.PROJECTS||[]).length+' projet(s)';
+      if(!confirm('Importer cette sauvegarde ('+resume+') ?\nLes données de cet appareil seront remplacées.'))return;
       try{
-        const d=JSON.parse(ev.target.result);
-        if(!d.v){toast('⚠️ Fichier invalide');return;}
-        if(!confirm('Importer ? Les données actuelles seront remplacées.'))return;
+        _noSave=true;clearTimeout(_saveTimer); // sinon l'enregistrement automatique réécrirait les données actuelles par-dessus
+        const before=localStorage.getItem(STORAGE_KEY);
+        if(before)localStorage.setItem(STORAGE_KEY+'_avant_import',before); // filet de sécurité
         localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
-        toast('✅ Importé — rechargement...');
-        setTimeout(()=>location.reload(),800);
-      }catch{toast('⚠️ JSON invalide');}
+        try{localStorage.setItem(WIZARD_KEY,'1');}catch(e2){}
+      }catch(err){_noSave=false;toast('⚠️ Import impossible : espace de stockage plein ?');return;}
+      toast('✅ Importé : '+resume+' — rechargement…');
+      setTimeout(()=>location.reload(),800);
     };
-    fr.readAsText(e.target.files[0]);
+    fr.readAsText(file);
   };
   inp.click();
 }
 
 function resetData(){
   if(!confirm('🔄 Réinitialiser avec les données de démonstration ?'))return;
+  _noSave=true;clearTimeout(_saveTimer);
   try{if(HAS_STORAGE){localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(WIZARD_KEY);}}catch(e){}
   wipeFilesThen(()=>location.reload());
 }
 
 function clearData(){
   if(!confirm('⚠️ Effacer TOUTES les données ? Irréversible.'))return;
+  _noSave=true;clearTimeout(_saveTimer);
   try{if(HAS_STORAGE){localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(WIZARD_KEY);}}catch(e){}
   wipeFilesThen(()=>location.reload());
 }
